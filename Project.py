@@ -1,56 +1,101 @@
-class Batch:
-    date = None
-    grade = None
-    quantity = None
-    def __init__(self, date, grade, quantity):
+import csv
+
+class Shipment:
+    def __init__(self, date, product_name, quantity):
         """
         Its a basic constructor, it just does whatever its supposed to do in Python
         """
         self.__date = date
-        self.__grade = grade
+        self.__product_name = product_name
         self.__quantity = quantity
 
     def display_details(self):
         """
         It's basically a __str__ thing but I want to have mine like this because it works better in my menu
         """
-        return f"Date: {self.__date}, Grade: {self.__grade}, Quantity: {self.__quantity}"
+        return f"Date: {self.__date}, Product Name: {self.__product_name}, Quantity: {self.__quantity}"
+
+    def to_csv_row(self):
+        """
+        Convert shipment details to a list suitable for CSV writing
+        """
+        return [self.__date, self.__product_name, self.__quantity]
 
 
 class Inventory:
-    batches = None
-    warehouse_location = None
-    manager = None
     def __init__(self, warehouse_location, manager):
         """
         Its a basic constructor, it just does whatever its supposed to do in Python
         """
-        self.batches = []
+        self.shipments = []
         self.warehouse_location = warehouse_location
         self.manager = manager
+        self.filename = f'{warehouse_location}_inventory.csv'
+        self.manager_file = f'{warehouse_location}_manager_log.txt'
 
-    def add_batch(self, date, grade, quantity):
-        """
-        it will add a new batch to the list of batches in the inventory
-        """
-        self.batches.append(Batch(date, grade, quantity))
+        
+        self.save_manager_info()
 
-    def remove_batch(self, date, grade, quantity):
+    def save_manager_info(self):
         """
-        it will remove a batch from the list of batches in the inventory
+        Save the manager name and warehouse info to a text file
         """
-        self.batches = [batch for batch in self.batches 
-                        if  (batch._Batch__date != date 
-                             or batch._Batch__grade != grade 
-                             or batch._Batch__quantity != quantity)
-                             ]
-    #I asked ai for a little help on how to syntax this weird thingy but I know how the code works
+        with open(self.manager_file, mode='a') as file:
+            file.write(f"Manager: {self.manager}\n")
 
-    def display_all_batches(self):
+    def log_user_action(self, user_name, action):
         """
-        it will display all the batches in the inventory
+        Log user actions (like adding or removing shipments)
         """
-        return [batch.display_details() for batch in self.batches]
+        with open(self.manager_file, mode='a') as file:
+            file.write(f"{user_name} performed action: {action}\n")
+
+    def add_shipment(self, date, product_name, quantity, user_name):
+        """
+        it will add a new shipment to the list of shipments in the inventory
+        """
+        self.shipments.append(Shipment(date, product_name, quantity))
+        self.log_user_action(user_name, f"Added shipment - Date: {date}, Product: {product_name}, Quantity: {quantity}")
+        self.save_to_csv()
+
+    def remove_shipment(self, date, product_name, quantity, user_name):
+        """
+        it will remove a shipment from the list of shipments in the inventory
+        """
+        self.shipments = [shipment for shipment in self.shipments 
+                           if (shipment._Shipment__date != date 
+                               or shipment._Shipment__product_name != product_name 
+                               or shipment._Shipment__quantity != quantity)]
+        self.log_user_action(user_name, f"Removed shipment - Date: {date}, Product: {product_name}, Quantity: {quantity}")
+        self.save_to_csv()
+
+    def display_all_shipments(self):
+        """
+        it will display all the shipments in the inventory
+        """
+        return [shipment.display_details() for shipment in self.shipments]
+
+    def save_to_csv(self):
+        """
+        Save all shipments to a CSV file
+        """
+        with open(self.filename, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(["Date", "Product Name", "Quantity"])
+            for shipment in self.shipments:
+                writer.writerow(shipment.to_csv_row())
+
+    def load_from_csv(self):
+        """
+        Load shipments from a CSV file
+        """
+        try:
+            with open(self.filename, mode='r') as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    self.shipments.append(Shipment(row["Date"], row["Product Name"], row["Quantity"]))
+        except FileNotFoundError:
+            print(f"No previous data found for warehouse '{self.warehouse_location}'.")
 
 
 def menu():
@@ -60,49 +105,47 @@ def menu():
     warehouse_location = input("Enter warehouse location: ")
     manager = input("Enter manager name: ")
     inventory = Inventory(warehouse_location, manager)
+    
+    
+    inventory.load_from_csv()
 
     while True:
-        print(f"\nWalter White's Inventory Tracker (FOR WHITE ROCK CANDY) - Managed by {inventory.manager}")
+        print(f"\nWarehouse Inventory Tracker - Managed by {inventory.manager}")
         print(f"Warehouse Location: {inventory.warehouse_location}")
-        print("1. Add Batch")
-        print("2. Remove Batch")
-        print("3. View All Batches")
+        print("1. Add Shipment")
+        print("2. Remove Shipment")
+        print("3. View All Shipments")
         print("4. Exit")
 
         choice = input("Enter your choice: ")
 
         if choice == "1":
-            date = input("Enter batch date (YYYY-MM-DD): ")
-            grade = input("Enter batch grade (1st grade, 2nd grade, 3rd grade): ")
-            quantity = input("Enter batch quantity: ")
-            inventory.add_batch(date, grade, quantity)
-            print(f"Batch added: Date: {date}, Grade: {grade}, Quantity: {quantity}")
+            user_name = input("Enter your name: ")
+            date = input("Enter shipment date (YYYY-MM-DD): ")
+            product_name = input("Enter product name: ")
+            quantity = input("Enter shipment quantity: ")
+            inventory.add_shipment(date, product_name, quantity, user_name)
+            print(f"Shipment added: Date: {date}, Product Name: {product_name}, Quantity: {quantity}")
 
         elif choice == "2":
-            date = input("Enter batch date to remove (YYYY-MM-DD): ")
-            grade = input("Enter batch grade to remove: ")
-            quantity = input("Enter batch quantity to remove: ")
-            inventory.remove_batch(date, grade, quantity)
-            print(f"Batch removed: Date: {date}, Grade: {grade}, Quantity: {quantity}")
+            user_name = input("Enter your name: ")
+            date = input("Enter shipment date to remove (YYYY-MM-DD): ")
+            product_name = input("Enter product name to remove: ")
+            quantity = input("Enter shipment quantity to remove: ")
+            inventory.remove_shipment(date, product_name, quantity, user_name)
+            print(f"Shipment removed: Date: {date}, Product Name: {product_name}, Quantity: {quantity}")
 
         elif choice == "3":
-            batches = inventory.display_all_batches()
+            shipments = inventory.display_all_shipments()
             print("\nCurrent Inventory:")
-            for batch in batches:
-                print(batch)
+            for shipment in shipments:
+                print(shipment)
 
         elif choice == "4":
-            verification = input("are you sure? \n y/n: ")
-            if verification == "y":
-                print("Quiting")
-                break
-            elif verification == "n":
-                inventory = Inventory(warehouse_location, manager)
+            print("Exiting...")
+            break
         else:
             print("Error")
 
 
 menu()
-
-
-
